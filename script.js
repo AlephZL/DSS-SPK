@@ -36,6 +36,42 @@ window.onload = function() {
 // NAVIGASI ANTAR MODUL
 // ==========================================
 function switchModule(moduleNumber) {
+    // Validasi saat ingin berpindah dari Modul 1 ke modul berikutnya
+    if (moduleNumber === 2 || moduleNumber === 3 || moduleNumber === 4) {
+        const critCheck = validateCriteriaModule();
+        if (!critCheck.valid) {
+            showNotification("Validasi Kriteria Belum Terpenuhi", critCheck.message, true);
+            if (critCheck.cid) highlightInvalidCriterionInput(critCheck.cid);
+            activateModuleDirect(1);
+            return;
+        }
+    }
+
+    // Validasi saat ingin berpindah ke Modul 3 atau 4 (Hasil/Sensitivitas)
+    if (moduleNumber === 3 || moduleNumber === 4) {
+        const matCheck = validateMatrixModule();
+        if (!matCheck.valid) {
+            showNotification("Validasi Matriks Belum Terpenuhi", matCheck.message, true);
+            if (matCheck.aid && matCheck.cid) highlightInvalidAlternativeInput(matCheck.aid, matCheck.cid);
+            activateModuleDirect(2);
+            return;
+        }
+        if (!lastCalculationResult) {
+            hitungEDAS(false);
+            if (!lastCalculationResult) return;
+        }
+    }
+
+    activateModuleDirect(moduleNumber);
+
+    if (moduleNumber === 4) {
+        initSensitivityModule();
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function activateModuleDirect(moduleNumber) {
     for (let i = 1; i <= 4; i++) {
         const panel = document.getElementById("module" + i);
         const tab = document.getElementById("tabModul" + i);
@@ -51,13 +87,6 @@ function switchModule(moduleNumber) {
             }
         }
     }
-
-    if (moduleNumber === 4) {
-        if (!lastCalculationResult) hitungEDAS(false);
-        initSensitivityModule();
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ==========================================
@@ -176,7 +205,7 @@ function normalizeWeights() {
     criteriaState.forEach(c => {
         c.weight = parseFloat((c.weight / total).toFixed(4));
     });
-    // Koreksi pembulatan kecil pada elemen terakhir agar tepat 1.00
+    // Koreksi pembulatan kecil pada elemen terakhir agar tepat 1.0000
     const newTotal = criteriaState.reduce((sum, c) => sum + c.weight, 0);
     const diff = 1.0 - newTotal;
     if (criteriaState.length > 0 && Math.abs(diff) < 0.05) {
@@ -184,6 +213,107 @@ function normalizeWeights() {
     }
     renderCriteriaTable();
     updateTotalWeightBadge();
+}
+
+// ==========================================
+// VALIDASI & INPUT HELPER
+// ==========================================
+
+// Blokir karakter non-angka positif: '-', '+', 'e', 'E'
+function blockInvalidNumberKeys(event) {
+    if (event.key === '-' || event.key === '+' || event.key === 'e' || event.key === 'E') {
+        event.preventDefault();
+        return false;
+    }
+}
+
+// Berikan umpan balik visual (border merah / highlight) pada elemen input
+function setInputValidationStyle(inputEl, isValid) {
+    if (!inputEl) return;
+    if (isValid) {
+        inputEl.classList.remove("border-rose-500", "bg-rose-50", "ring-1", "ring-rose-500", "text-rose-900");
+        inputEl.classList.add("border-slate-300", "bg-white", "text-slate-800");
+    } else {
+        inputEl.classList.remove("border-slate-300", "bg-white", "text-slate-800");
+        inputEl.classList.add("border-rose-500", "bg-rose-50", "ring-1", "ring-rose-500", "text-rose-900");
+    }
+}
+
+function highlightInvalidCriterionInput(cid) {
+    const el = document.getElementById("crit_weight_" + cid);
+    if (el) {
+        setInputValidationStyle(el, false);
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function highlightInvalidAlternativeInput(aid, cid) {
+    const el = document.getElementById(`alt_input_${aid}_${cid}`);
+    if (el) {
+        setInputValidationStyle(el, false);
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+// Fungsi Validasi Modul 1 (Kriteria & Bobot)
+function validateCriteriaModule() {
+    if (criteriaState.length < 1) {
+        return { valid: false, message: "Minimal harus terdapat 1 kriteria evaluasi biji kopi." };
+    }
+
+    for (const c of criteriaState) {
+        if (isNaN(c.weight) || c.weight <= 0 || c.weight > 1) {
+            return {
+                valid: false,
+                cid: c.id,
+                message: `Bobot kriteria '${c.name}' (${c.code}) bernilai ${c.weight}. Setiap bobot wajib bernilai positif antara 0.0001 dan 1.0000 (tidak boleh 0, negatif, kosong, atau huruf).`
+            };
+        }
+    }
+
+    const total = criteriaState.reduce((sum, c) => sum + (c.weight || 0), 0);
+    if (Math.abs(total - 1.0) > 0.0001) {
+        return {
+            valid: false,
+            message: `Total penjumlahan seluruh bobot kriteria saat ini adalah ${total.toFixed(4)}. Total bobot wajib tepat sama dengan 1.0000. Silakan klik tombol 'Normalisasi Total = 1' atau sesuaikan bobot Anda.`
+        };
+    }
+
+    return { valid: true };
+}
+
+// Fungsi Validasi Modul 2 (Alternatif & Matriks Nilai)
+function validateMatrixModule() {
+    if (alternativesState.length < 2) {
+        return {
+            valid: false,
+            message: "Metode EDAS memerlukan minimal 2 alternatif biji kopi untuk melakukan perbandingan dan perankingan."
+        };
+    }
+
+    for (const a of alternativesState) {
+        if (!a.name || a.name.trim() === "") {
+            return {
+                valid: false,
+                message: "Ditemukan alternatif dengan nama kosong. Mohon lengkapi seluruh nama alternatif biji kopi."
+            };
+        }
+        for (const c of criteriaState) {
+            const val = a.values[c.id];
+            if (val === undefined || isNaN(val) || val <= 0) {
+                return {
+                    valid: false,
+                    aid: a.id,
+                    cid: c.id,
+                    message: `Nilai kinerja alternatif '${a.name}' pada kriteria '${c.name}' (${c.code}) bernilai ${val !== undefined ? val : 'kosong'}. Dalam metode EDAS, semua nilai alternatif wajib berupa angka positif (> 0) karena menjadi pembagi solusi rata-rata (AV). Dilarang memasukkan angka 0, nilai negatif, atau membiarkan kosong.`
+                };
+            }
+        }
+    }
+
+    return { valid: true };
 }
 
 // ==========================================
@@ -201,6 +331,11 @@ function renderCriteriaTable() {
     criteriaState.forEach((c, index) => {
         c.code = "C" + (index + 1);
         const percent = ((c.weight || 0) * 100).toFixed(2) + "%";
+        const isValidWeight = !isNaN(c.weight) && c.weight > 0 && c.weight <= 1;
+        const inputClass = isValidWeight
+            ? "w-28 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            : "w-28 text-center px-2 py-1.5 border-2 border-rose-500 bg-rose-50 text-rose-900 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-rose-500 focus:outline-none";
+
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50 transition";
         tr.innerHTML = `
@@ -210,10 +345,13 @@ function renderCriteriaTable() {
                     class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
             </td>
             <td class="p-3 text-center">
-                <input type="number" step="0.0001" min="0" max="1" value="${c.weight}" onchange="updateCriterionWeight(${c.id}, this.value)"
-                    class="w-24 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                <input type="number" id="crit_weight_${c.id}" step="0.0001" min="0.0001" max="1" value="${c.weight}"
+                    onkeydown="blockInvalidNumberKeys(event)"
+                    oninput="onCriterionWeightInput(${c.id}, this)"
+                    onchange="updateCriterionWeight(${c.id}, this.value, this)"
+                    class="${inputClass}">
             </td>
-            <td class="p-3 text-center text-xs text-slate-500 font-medium">${percent}</td>
+            <td class="p-3 text-center text-xs text-slate-500 font-medium" id="crit_percent_${c.id}">${percent}</td>
             <td class="p-3 text-center">
                 <select onchange="updateCriterionType(${c.id}, this.value)"
                     class="px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-none">
@@ -232,6 +370,23 @@ function renderCriteriaTable() {
     updateTotalWeightBadge();
 }
 
+function onCriterionWeightInput(cid, inputEl) {
+    const raw = inputEl.value;
+    const val = parseFloat(raw);
+    const isValid = !isNaN(val) && val > 0 && val <= 1;
+    setInputValidationStyle(inputEl, isValid);
+
+    const c = criteriaState.find(item => item.id === cid);
+    if (c) {
+        c.weight = isValid ? val : (isNaN(val) ? 0 : val);
+        const percentEl = document.getElementById("crit_percent_" + cid);
+        if (percentEl) {
+            percentEl.innerText = ((c.weight || 0) * 100).toFixed(2) + "%";
+        }
+    }
+    updateTotalWeightBadge();
+}
+
 function addCriterion() {
     const nextIdx = criteriaState.length + 1;
     const newCid = cidAutoIncrement++;
@@ -244,9 +399,11 @@ function addCriterion() {
     });
 
     alternativesState.forEach(a => {
-        a.values[newCid] = 0;
+        // Inisialisasi nilai dengan angka positif (> 0)
+        a.values[newCid] = 1;
     });
 
+    normalizeWeights();
     renderAllTables();
 }
 
@@ -256,9 +413,19 @@ function updateCriterionName(cid, val) {
     renderAlternativeTable();
 }
 
-function updateCriterionWeight(cid, val) {
+function updateCriterionWeight(cid, val, inputEl) {
+    const parsed = parseFloat(val);
+    const isValid = !isNaN(parsed) && parsed > 0 && parsed <= 1;
+    if (inputEl) setInputValidationStyle(inputEl, isValid);
+
     const c = criteriaState.find(item => item.id === cid);
-    if (c) c.weight = parseFloat(val) || 0;
+    if (c) {
+        c.weight = isNaN(parsed) ? 0 : parsed;
+        const percentEl = document.getElementById("crit_percent_" + cid);
+        if (percentEl) {
+            percentEl.innerText = ((c.weight || 0) * 100).toFixed(2) + "%";
+        }
+    }
     updateTotalWeightBadge();
 }
 
@@ -277,19 +444,43 @@ function removeCriterion(cid) {
     alternativesState.forEach(a => {
         delete a.values[cid];
     });
+    normalizeWeights();
     renderAllTables();
 }
 
 function updateTotalWeightBadge() {
     const total = criteriaState.reduce((sum, c) => sum + (c.weight || 0), 0);
     const badge = document.getElementById("statusBobotBadge");
-    if (!badge) return;
-    if (Math.abs(total - 1.0) < 0.005) {
-        badge.className = "text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
-        badge.innerHTML = `<i class="fa-solid fa-check-circle mr-1"></i> Total Bobot: ${total.toFixed(2)} (100%)`;
+    const hasInvalidWeight = criteriaState.some(c => isNaN(c.weight) || c.weight <= 0 || c.weight > 1);
+    const isSumValid = Math.abs(total - 1.0) <= 0.0001;
+    const isValid = isSumValid && !hasInvalidWeight;
+
+    if (badge) {
+        if (isValid) {
+            badge.className = "text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+            badge.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Total Bobot: ${total.toFixed(4)} (100% Sesuai Aturan)`;
+        } else {
+            badge.className = "text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
+            badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Total Bobot: ${total.toFixed(4)} (Wajib = 1.0000)`;
+        }
+    }
+
+    updateCriteriaValidationAlert(total, hasInvalidWeight, isSumValid);
+}
+
+function updateCriteriaValidationAlert(total, hasInvalidWeight, isSumValid) {
+    const alertBox = document.getElementById("criteriaValidationAlert");
+    const alertText = document.getElementById("criteriaValidationAlertText");
+    if (!alertBox || !alertText) return;
+
+    if (hasInvalidWeight) {
+        alertBox.classList.remove("hidden");
+        alertText.innerHTML = `<strong>Validasi Gagal:</strong> Terdapat bobot kriteria yang bernilai 0, negatif, kosong, atau melebihi 1. Setiap bobot kriteria <strong>wajib berupa angka positif (> 0 dan &le; 1)</strong>.`;
+    } else if (!isSumValid) {
+        alertBox.classList.remove("hidden");
+        alertText.innerHTML = `<strong>Total Bobot Tidak Tepat:</strong> Jumlah seluruh bobot kriteria adalah <strong>${total.toFixed(4)}</strong> (selisih: ${(total - 1.0).toFixed(4)}). Aturan EDAS mewajibkan total bobot <strong>tepat sama dengan 1.0000</strong>. Silakan klik tombol <strong>"Normalisasi Total = 1"</strong> untuk penyesuaian otomatis.`;
     } else {
-        badge.className = "text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
-        badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Total Bobot: ${total.toFixed(2)} (Wajib = 1.00)`;
+        alertBox.classList.add("hidden");
     }
 }
 
@@ -305,7 +496,7 @@ function renderAlternativeTable(filterQuery = "") {
     `;
     criteriaState.forEach(c => {
         const th = document.createElement("th");
-        th.className = "p-3 border-b border-slate-200 text-center min-w-[120px]";
+        th.className = "p-3 border-b border-slate-200 text-center min-w-[130px]";
         th.innerHTML = `
             <div class="font-bold text-slate-800">${c.code}</div>
             <div class="text-[10px] font-normal text-slate-500 truncate max-w-[130px] mx-auto" title="${c.name}">${c.name}</div>
@@ -340,11 +531,20 @@ function renderAlternativeTable(filterQuery = "") {
         `;
 
         criteriaState.forEach(c => {
-            const val = a.values[c.id] !== undefined ? a.values[c.id] : 0;
+            const rawVal = a.values[c.id];
+            const val = rawVal !== undefined ? rawVal : 0;
+            const isValid = !isNaN(val) && val > 0;
+            const inputClass = isValid
+                ? "w-28 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                : "w-28 text-center px-2 py-1.5 border-2 border-rose-500 bg-rose-50 text-rose-900 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-rose-500 focus:outline-none";
+
             rowHtml += `
                 <td class="p-3 text-center">
-                    <input type="number" step="any" value="${val}" onchange="updateAlternativeValue(${a.id}, ${c.id}, this.value)"
-                        class="w-28 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                    <input type="number" id="alt_input_${a.id}_${c.id}" step="any" min="0.01" value="${val}"
+                        onkeydown="blockInvalidNumberKeys(event)"
+                        oninput="onAlternativeValueInput(${a.id}, ${c.id}, this)"
+                        onchange="updateAlternativeValue(${a.id}, ${c.id}, this.value, this)"
+                        class="${inputClass}">
                 </td>
             `;
         });
@@ -360,6 +560,21 @@ function renderAlternativeTable(filterQuery = "") {
         tr.innerHTML = rowHtml;
         tbody.appendChild(tr);
     });
+
+    updateMatrixValidationAlert();
+}
+
+function onAlternativeValueInput(aid, cid, inputEl) {
+    const raw = inputEl.value;
+    const val = parseFloat(raw);
+    const isValid = !isNaN(val) && val > 0;
+    setInputValidationStyle(inputEl, isValid);
+
+    const a = alternativesState.find(item => item.id === aid);
+    if (a) {
+        a.values[cid] = isValid ? val : (isNaN(val) ? 0 : val);
+    }
+    updateMatrixValidationAlert();
 }
 
 function filterAlternatives(val) {
@@ -371,7 +586,8 @@ function addAlternative() {
     const newAid = aidAutoIncrement++;
     let valMap = {};
     criteriaState.forEach(c => {
-        valMap[c.id] = 0;
+        // Wajib default bernilai positif (> 0)
+        valMap[c.id] = 1;
     });
 
     alternativesState.push({
@@ -388,20 +604,54 @@ function updateAlternativeName(aid, val) {
     if (a) a.name = val;
 }
 
-function updateAlternativeValue(aid, cid, val) {
+function updateAlternativeValue(aid, cid, val, inputEl) {
+    const parsed = parseFloat(val);
+    const isValid = !isNaN(parsed) && parsed > 0;
+    if (inputEl) setInputValidationStyle(inputEl, isValid);
+
     const a = alternativesState.find(item => item.id === aid);
     if (a) {
-        a.values[cid] = parseFloat(val) || 0;
+        a.values[cid] = isNaN(parsed) ? 0 : parsed;
     }
+    updateMatrixValidationAlert();
 }
 
 function removeAlternative(aid) {
-    if (alternativesState.length <= 1) {
-        showNotification("Peringatan", "Minimal harus ada 1 alternatif biji kopi.", true);
+    if (alternativesState.length <= 2) {
+        showNotification("Peringatan", "Minimal harus ada 2 alternatif biji kopi agar perankingan EDAS valid.", true);
         return;
     }
     alternativesState = alternativesState.filter(item => item.id !== aid);
     renderAlternativeTable();
+}
+
+function updateMatrixValidationAlert() {
+    const alertBox = document.getElementById("matrixValidationAlert");
+    const alertText = document.getElementById("matrixValidationAlertText");
+    if (!alertBox || !alertText) return;
+
+    if (alternativesState.length < 2) {
+        alertBox.classList.remove("hidden");
+        alertText.innerHTML = `<strong>Jumlah Alternatif Kurang:</strong> Metode EDAS memerlukan <strong>minimal 2 alternatif biji kopi</strong> untuk proses perankingan. Silakan klik tombol <strong>"Tambah Alternatif"</strong>.`;
+        return;
+    }
+
+    let invalidCount = 0;
+    for (const a of alternativesState) {
+        for (const c of criteriaState) {
+            const val = a.values[c.id];
+            if (val === undefined || isNaN(val) || val <= 0) {
+                invalidCount++;
+            }
+        }
+    }
+
+    if (invalidCount > 0) {
+        alertBox.classList.remove("hidden");
+        alertText.innerHTML = `<strong>Nilai Tidak Valid Ditemukan (${invalidCount} sel):</strong> Dalam algoritma EDAS, seluruh nilai kinerja alternatif <strong>wajib berupa angka positif (> 0)</strong> karena menjadi pembagi solusi rata-rata (AV). Dilarang memasukkan angka 0, nilai negatif, atau membiarkan sel kosong. Sel yang bermasalah ditandai dengan warna merah.`;
+    } else {
+        alertBox.classList.add("hidden");
+    }
 }
 
 // ==========================================
@@ -411,26 +661,41 @@ function executeEDASCore(criteria, weights, alternatives) {
     const m = alternatives.length;
     const n = criteria.length;
 
-    // 1. Matriks X
+    if (m < 2) {
+        throw new Error("Minimal diperlukan 2 alternatif untuk proses perankingan metode EDAS.");
+    }
+    if (n < 1) {
+        throw new Error("Minimal diperlukan 1 kriteria untuk proses perhitungan metode EDAS.");
+    }
+
+    // 1. Matriks Keputusan (X)
     let X = [];
     for (let i = 0; i < m; i++) {
         let row = [];
         for (let j = 0; j < n; j++) {
             const cid = criteria[j].id;
-            row.push(alternatives[i].values[cid] !== undefined ? alternatives[i].values[cid] : 0);
+            const val = alternatives[i].values[cid];
+            if (val === undefined || isNaN(val) || val <= 0) {
+                throw new Error(`Nilai kinerja alternatif '${alternatives[i].name}' pada kriteria '${criteria[j].name}' (${criteria[j].code}) bernilai ${val}. Seluruh nilai kinerja wajib berupa angka positif (> 0).`);
+            }
+            row.push(val);
         }
         X.push(row);
     }
 
-    // 2. Solusi Rata-rata AV
+    // 2. Solusi Rata-rata (AV) dengan Division by Zero Guard
     let AV = [];
     for (let j = 0; j < n; j++) {
         let sum = 0;
         for (let i = 0; i < m; i++) sum += X[i][j];
-        AV.push(sum / m);
+        const avg = sum / m;
+        if (isNaN(avg) || avg <= 0) {
+            throw new Error(`Kriteria '${criteria[j].name}' (${criteria[j].code}) memiliki nilai rata-rata (AV) = ${avg} (<= 0). Pembagian dengan nol dicegah. Setiap kriteria harus memiliki nilai alternatif positif (> 0).`);
+        }
+        AV.push(avg);
     }
 
-    // 3. PDA & NDA
+    // 3. Jarak Positif & Negatif dari Rata-rata (PDA & NDA)
     let PDA = Array.from({ length: m }, () => Array(n).fill(0));
     let NDA = Array.from({ length: m }, () => Array(n).fill(0));
 
@@ -440,7 +705,7 @@ function executeEDASCore(criteria, weights, alternatives) {
             const av = AV[j];
             const type = criteria[j].type;
 
-            if (av === 0) {
+            if (av <= 0) {
                 PDA[i][j] = 0;
                 NDA[i][j] = 0;
             } else if (type === "benefit") {
@@ -453,7 +718,7 @@ function executeEDASCore(criteria, weights, alternatives) {
         }
     }
 
-    // 4. SP & SN
+    // 4. Jumlah Terbobot Jarak Positif & Negatif (SP & SN)
     let SP = [];
     let SN = [];
     for (let i = 0; i < m; i++) {
@@ -467,20 +732,20 @@ function executeEDASCore(criteria, weights, alternatives) {
         SN.push(snSum);
     }
 
-    // 5. Normalisasi NSP & NSN
+    // 5. Normalisasi NSP & NSN (Guard Division by Zero jika max(SP) === 0 atau max(SN) === 0)
     let maxSP = Math.max(...SP);
     let maxSN = Math.max(...SN);
 
-    let NSP = SP.map(sp => (maxSP === 0 ? 0 : sp / maxSP));
-    let NSN = SN.map(sn => (maxSN === 0 ? 1 : 1 - (sn / maxSN)));
+    let NSP = SP.map(sp => (maxSP <= 0 ? 0 : sp / maxSP));
+    let NSN = SN.map(sn => (maxSN <= 0 ? 1 : 1 - (sn / maxSN)));
 
-    // 6. Appraisal Score (AS)
+    // 6. Penilaian Skor Akhir (Appraisal Score - AS)
     let AS = [];
     for (let i = 0; i < m; i++) {
         AS.push(0.5 * (NSP[i] + NSN[i]));
     }
 
-    // 7. Ranking
+    // 7. Perangkingan
     let results = [];
     for (let i = 0; i < m; i++) {
         results.push({
@@ -513,31 +778,37 @@ function executeEDASCore(criteria, weights, alternatives) {
 }
 
 function hitungEDAS(navigateToModule = true) {
-    if (criteriaState.length === 0 || alternativesState.length === 0) {
-        showNotification("Validasi Gagal", "Kriteria dan Alternatif tidak boleh kosong.", true);
+    const critCheck = validateCriteriaModule();
+    if (!critCheck.valid) {
+        showNotification("Validasi Kriteria Gagal", critCheck.message, true);
+        if (critCheck.cid) highlightInvalidCriterionInput(critCheck.cid);
+        activateModuleDirect(1);
         return;
     }
 
-    let rawTotalWeight = criteriaState.reduce((sum, c) => sum + (c.weight || 0), 0);
-    if (Math.abs(rawTotalWeight - 1.0) >= 0.005) {
-        showNotification(
-            "Total Bobot Belum Pas",
-            `Total bobot saat ini: ${rawTotalWeight.toFixed(2)}. Gunakan tombol 'Normalisasi Total = 1' di Modul 1.`,
-            true
-        );
-        switchModule(1);
+    const matCheck = validateMatrixModule();
+    if (!matCheck.valid) {
+        showNotification("Validasi Matriks Alternatif Gagal", matCheck.message, true);
+        if (matCheck.aid && matCheck.cid) highlightInvalidAlternativeInput(matCheck.aid, matCheck.cid);
+        activateModuleDirect(2);
         return;
     }
 
     let weights = criteriaState.map(c => c.weight);
-    lastCalculationResult = executeEDASCore(criteriaState, weights, alternativesState);
+    try {
+        lastCalculationResult = executeEDASCore(criteriaState, weights, alternativesState);
+    } catch (err) {
+        showNotification("Kesalahan Perhitungan EDAS", err.message, true);
+        return;
+    }
 
     renderRankingView(lastCalculationResult.ranking);
     renderStepByStepView(lastCalculationResult);
     renderCharts(lastCalculationResult);
 
     if (navigateToModule) {
-        switchModule(3);
+        activateModuleDirect(3);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
 
