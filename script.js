@@ -2,19 +2,19 @@
 // DATA DEFAULT AWAL
 // ==========================================
 const DEFAULT_CRITERIA = [
-    { code: "C1", name: "Harga Biji Kopi", weight: 0.2168, type: "cost" },
+    { code: "C1", name: "Harga", weight: 0.2168, type: "cost" },
     { code: "C2", name: "Kualitas Rasa", weight: 0.1858, type: "benefit" },
     { code: "C3", name: "Kekuatan Aroma", weight: 0.1832, type: "benefit" },
     { code: "C4", name: "Konsistensi Sajian", weight: 0.2159, type: "benefit" },
-    { code: "C5", name: "Tingkat Cacat", weight: 0.1983, type: "cost" }
+    { code: "C5", name: "Aftertaste (Rasa Akhir)", weight: 0.1983, type: "benefit" }
 ];
 
 const DEFAULT_ALTERNATIVES = [
-    { name: "Arabika", values: [4, 5, 5, 3, 2] },
-    { name: "Robusta", values: [2, 3, 3, 5, 3] },
-    { name: "Liberika", values: [3, 3, 4, 3, 3] },
-    { name: "Excelsa", values: [3, 4, 4, 4, 2] },
-    { name: "Luwak", values: [5, 5, 5, 2, 1] }
+    { name: "Robusta Pupuan Bali", values: [120000, 3.5, 3.5, 4, 3] },
+    { name: "City Plus Coffee (Robusta)", values: [130000, 3.5, 4, 4, 3.5] },
+    { name: "Local Blend (Arabika 30% : Robusta 70%)", values: [150000, 4, 4, 4.5, 4] },
+    { name: "Robusta Bangka", values: [100000, 3, 3, 3.5, 3] },
+    { name: "Ijen Lestari", values: [220000, 4.5, 4.5, 4, 4.5] }
 ];
 
 // State Aplikasi
@@ -144,21 +144,21 @@ function applyPreset(presetType) {
             if (defMap[c.code] !== undefined) c.weight = defMap[c.code];
         });
     } else if (presetType === "quality") {
-        // Prioritas rasa & aroma
+        // Prioritas rasa, aroma & aftertaste
         criteriaState.forEach(c => {
-            if (c.code === "C2") c.weight = 0.35;
+            if (c.code === "C2") c.weight = 0.30;
             else if (c.code === "C3") c.weight = 0.25;
-            else if (c.code === "C4") c.weight = 0.20;
-            else if (c.code === "C1") c.weight = 0.10;
+            else if (c.code === "C5") c.weight = 0.20;
+            else if (c.code === "C4") c.weight = 0.15;
             else c.weight = 0.10;
         });
     } else if (presetType === "cost") {
-        // Prioritas efisiensi biaya & cacat rendah
+        // Prioritas efisiensi biaya
         criteriaState.forEach(c => {
-            if (c.code === "C1") c.weight = 0.35;
-            else if (c.code === "C5") c.weight = 0.25;
-            else if (c.code === "C4") c.weight = 0.15;
+            if (c.code === "C1") c.weight = 0.40;
+            else if (c.code === "C4") c.weight = 0.20;
             else if (c.code === "C2") c.weight = 0.15;
+            else if (c.code === "C3") c.weight = 0.15;
             else c.weight = 0.10;
         });
     } else if (presetType === "equal") {
@@ -343,8 +343,8 @@ function renderAlternativeTable(filterQuery = "") {
             const val = a.values[c.id] !== undefined ? a.values[c.id] : 0;
             rowHtml += `
                 <td class="p-3 text-center">
-                    <input type="number" step="0.01" value="${val}" onchange="updateAlternativeValue(${a.id}, ${c.id}, this.value)"
-                        class="w-24 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                    <input type="number" step="any" value="${val}" onchange="updateAlternativeValue(${a.id}, ${c.id}, this.value)"
+                        class="w-28 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
                 </td>
             `;
         });
@@ -667,7 +667,11 @@ function renderCharts(data) {
 
         const datasets = top3.map((altItem, idx) => {
             const rawAlt = data.alternatives.find(a => a.name === altItem.name);
-            const values = data.criteria.map(c => rawAlt && rawAlt.values[c.id] !== undefined ? rawAlt.values[c.id] : 0);
+            const values = data.criteria.map(c => {
+                const val = rawAlt && rawAlt.values[c.id] !== undefined ? rawAlt.values[c.id] : 0;
+                const colMax = Math.max(...data.alternatives.map(a => a.values[c.id] || 0));
+                return colMax > 0 ? parseFloat(((val / colMax) * 5).toFixed(2)) : 0;
+            });
             return {
                 label: altItem.name,
                 data: values,
@@ -691,12 +695,27 @@ function renderCharts(data) {
                     legend: {
                         position: "bottom",
                         labels: { boxWidth: 12, font: { size: 10 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const datasetLabel = context.dataset.label || '';
+                                const crit = data.criteria[context.dataIndex];
+                                const rawAlt = data.alternatives.find(a => a.name === datasetLabel);
+                                const originalVal = rawAlt && rawAlt.values[crit.id] !== undefined ? rawAlt.values[crit.id] : 0;
+                                const displayVal = originalVal >= 1000 
+                                    ? 'Rp ' + originalVal.toLocaleString('id-ID')
+                                    : originalVal;
+                                return `${datasetLabel} (${crit.name}): ${displayVal}`;
+                            }
+                        }
                     }
                 },
                 scales: {
                     r: {
                         ticks: { display: false },
-                        suggestedMin: 0
+                        suggestedMin: 0,
+                        suggestedMax: 5
                     }
                 }
             }
