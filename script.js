@@ -2,11 +2,11 @@
 // DATA DEFAULT AWAL
 // ==========================================
 const DEFAULT_CRITERIA = [
-    { code: "C1", name: "Harga Biji Kopi", weight: 0.25, type: "cost" },
-    { code: "C2", name: "Kualitas Rasa", weight: 0.25, type: "benefit" },
-    { code: "C3", name: "Kekuatan Aroma", weight: 0.20, type: "benefit" },
-    { code: "C4", name: "Kemudahan Ekstraksi", weight: 0.15, type: "benefit" },
-    { code: "C5", name: "Tingkat Cacat", weight: 0.15, type: "cost" }
+    { code: "C1", name: "Harga Biji Kopi", weight: 0.2168, type: "cost" },
+    { code: "C2", name: "Kualitas Rasa", weight: 0.1858, type: "benefit" },
+    { code: "C3", name: "Kekuatan Aroma", weight: 0.1832, type: "benefit" },
+    { code: "C4", name: "Konsistensi Sajian", weight: 0.2159, type: "benefit" },
+    { code: "C5", name: "Tingkat Cacat", weight: 0.1983, type: "cost" }
 ];
 
 const DEFAULT_ALTERNATIVES = [
@@ -139,7 +139,7 @@ function applyPreset(presetType) {
     if (criteriaState.length === 0) return;
 
     if (presetType === "default") {
-        const defMap = { "C1": 0.25, "C2": 0.25, "C3": 0.20, "C4": 0.15, "C5": 0.15 };
+        const defMap = { "C1": 0.2168, "C2": 0.1858, "C3": 0.1832, "C4": 0.2159, "C5": 0.1983 };
         criteriaState.forEach(c => {
             if (defMap[c.code] !== undefined) c.weight = defMap[c.code];
         });
@@ -147,8 +147,9 @@ function applyPreset(presetType) {
         // Prioritas rasa & aroma
         criteriaState.forEach(c => {
             if (c.code === "C2") c.weight = 0.35;
-            else if (c.code === "C3") c.weight = 0.30;
-            else if (c.code === "C1") c.weight = 0.15;
+            else if (c.code === "C3") c.weight = 0.25;
+            else if (c.code === "C4") c.weight = 0.20;
+            else if (c.code === "C1") c.weight = 0.10;
             else c.weight = 0.10;
         });
     } else if (presetType === "cost") {
@@ -156,8 +157,8 @@ function applyPreset(presetType) {
         criteriaState.forEach(c => {
             if (c.code === "C1") c.weight = 0.35;
             else if (c.code === "C5") c.weight = 0.25;
+            else if (c.code === "C4") c.weight = 0.15;
             else if (c.code === "C2") c.weight = 0.15;
-            else if (c.code === "C3") c.weight = 0.15;
             else c.weight = 0.10;
         });
     } else if (presetType === "equal") {
@@ -199,7 +200,7 @@ function renderCriteriaTable() {
 
     criteriaState.forEach((c, index) => {
         c.code = "C" + (index + 1);
-        const percent = ((c.weight || 0) * 100).toFixed(1) + "%";
+        const percent = ((c.weight || 0) * 100).toFixed(2) + "%";
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50 transition";
         tr.innerHTML = `
@@ -209,7 +210,7 @@ function renderCriteriaTable() {
                     class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
             </td>
             <td class="p-3 text-center">
-                <input type="number" step="0.01" min="0" max="1" value="${c.weight}" onchange="updateCriterionWeight(${c.id}, this.value)"
+                <input type="number" step="0.0001" min="0" max="1" value="${c.weight}" onchange="updateCriterionWeight(${c.id}, this.value)"
                     class="w-24 text-center px-2 py-1.5 border border-slate-300 rounded-md text-xs sm:text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
             </td>
             <td class="p-3 text-center text-xs text-slate-500 font-medium">${percent}</td>
