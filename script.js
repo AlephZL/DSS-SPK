@@ -6,7 +6,7 @@ const DEFAULT_CRITERIA = [
     { code: "C2", name: "Kualitas Rasa", weight: 0.1858, type: "benefit" },
     { code: "C3", name: "Kekuatan Aroma", weight: 0.1832, type: "benefit" },
     { code: "C4", name: "Konsistensi Sajian", weight: 0.2159, type: "benefit" },
-    { code: "C5", name: "Aftertaste (Rasa Akhir)", weight: 0.1983, type: "benefit" }
+    { code: "C5", name: "Aftertaste", weight: 0.1983, type: "benefit" }
 ];
 
 const DEFAULT_ALTERNATIVES = [
@@ -28,7 +28,7 @@ let radarChartInstance = null;
 let sensitivityWeights = [];
 
 // Inisialisasi saat window dimuat
-window.onload = function() {
+window.onload = function () {
     resetDefaultData();
 };
 
@@ -648,7 +648,7 @@ function updateMatrixValidationAlert() {
 
     if (invalidCount > 0) {
         alertBox.classList.remove("hidden");
-        alertText.innerHTML = `<strong>Nilai Tidak Valid Ditemukan (${invalidCount} sel):</strong> Dalam algoritma EDAS, seluruh nilai kinerja alternatif <strong>wajib berupa angka positif (> 0)</strong> karena menjadi pembagi solusi rata-rata (AV). Dilarang memasukkan angka 0, nilai negatif, atau membiarkan sel kosong. Sel yang bermasalah ditandai dengan warna merah.`;
+        alertText.innerHTML = `<strong>Nilai Tidak Valid Ditemukan (${invalidCount} sel):</strong> Dalam algoritma EDAS, seluruh nilai kinerja alternatif <strong>wajib berupa angka positif (> 0)</strong> karena menjadi pembagi solusi rata-rata (AV). Dilarang memasukkan angka 0, nilai negatif, atau membiarkan sel kosong.`;
     } else {
         alertBox.classList.add("hidden");
     }
@@ -824,11 +824,10 @@ function renderRankingView(results) {
         tr.className = isTop ? "bg-indigo-50/70 font-semibold" : "hover:bg-slate-50 transition";
         tr.innerHTML = `
             <td class="p-3 text-center">
-                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                    idx === 0 ? 'bg-amber-400 text-slate-900 shadow-xs' :
-                    idx === 1 ? 'bg-slate-300 text-slate-800' :
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${idx === 0 ? 'bg-amber-400 text-slate-900 shadow-xs' :
+                idx === 1 ? 'bg-slate-300 text-slate-800' :
                     idx === 2 ? 'bg-amber-700/30 text-amber-900' : 'text-slate-600'
-                }">
+            }">
                     ${idx + 1}
                 </span>
             </td>
@@ -842,11 +841,11 @@ function renderRankingView(results) {
             <td class="p-3 text-center font-bold text-sm text-indigo-700">${item.as.toFixed(4)}</td>
             <td class="p-3 text-center">
                 ${isTop ?
-                    `<span class="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                `<span class="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
                         <i class="fa-solid fa-crown text-amber-500 text-[10px]"></i> Rekomendasi
                     </span>` :
-                    `<span class="text-xs text-slate-400">Alternatif</span>`
-                }
+                `<span class="text-xs text-slate-400">Alternatif</span>`
+            }
             </td>
         `;
         tbody.appendChild(tr);
@@ -969,12 +968,12 @@ function renderCharts(data) {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 const datasetLabel = context.dataset.label || '';
                                 const crit = data.criteria[context.dataIndex];
                                 const rawAlt = data.alternatives.find(a => a.name === datasetLabel);
                                 const originalVal = rawAlt && rawAlt.values[crit.id] !== undefined ? rawAlt.values[crit.id] : 0;
-                                const displayVal = originalVal >= 1000 
+                                const displayVal = originalVal >= 1000
                                     ? 'Rp ' + originalVal.toLocaleString('id-ID')
                                     : originalVal;
                                 return `${datasetLabel} (${crit.name}): ${displayVal}`;
