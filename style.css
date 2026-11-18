@@ -1,0 +1,213 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Scrollbar tabel data */
+.custom-scrollbar::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background-color: #f1f5f9;
+}
+
+/* Navigasi tab modul */
+.tab-btn {
+    transition: all 0.15s ease;
+}
+.tab-btn.active {
+    background-color: #4f46e5;
+    color: #ffffff;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.tab-btn:not(.active) {
+    background-color: transparent;
+    color: #64748b;
+}
+.tab-btn:not(.active):hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+/* Panel modul */
+.module-panel {
+    display: none;
+}
+.module-panel.active {
+    display: block;
+}
+
+.print-only {
+    display: none;
+}
+
+/* ========================================== */
+/* PENGATURAN CETAK / SIMPAN PDF (A4 PORTRAIT)*/
+/* ========================================== */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm 10mm;
+    }
+
+    /* Sembunyikan elemen navigasi, interaksi, dan aksi */
+    header,
+    nav,
+    footer,
+    .no-print,
+    button,
+    input[type="file"],
+    #module4,
+    #chartsContainer,
+    #accordionContainer,
+    .search-box {
+        display: none !important;
+    }
+
+    body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 8.5pt !important;
+        line-height: 1.25 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    main {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Urutan cetak logis: Hasil Perangkingan dulu, lalu Matriks & Kriteria */
+    #module3 {
+        order: 1 !important;
+        display: block !important;
+        margin-bottom: 12pt !important;
+    }
+    #module1 {
+        order: 2 !important;
+        display: block !important;
+        margin-bottom: 12pt !important;
+        page-break-inside: avoid !important;
+    }
+    #module2 {
+        order: 3 !important;
+        display: block !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Penataan card cetak rapi */
+    .bg-white, .rounded-xl, .rounded-lg, .border {
+        background: #ffffff !important;
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 4px !important;
+        padding: 6pt 8pt !important;
+        margin-bottom: 8pt !important;
+    }
+
+    /* Reset overflow agar tabel tidak terpotong */
+    .overflow-x-auto, .custom-scrollbar {
+        overflow: visible !important;
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* Penyesuaian tabel agar pas di lebar A4 (100% fit) */
+    table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        font-size: 8pt !important;
+        margin: 0 !important;
+    }
+
+    th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 3.5pt 4pt !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        min-width: 0 !important;
+        width: auto !important;
+        text-align: center !important;
+    }
+
+    th {
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        font-size: 7.5pt !important;
+    }
+
+    /* Kolom nama alternatif dan kriteria rata kiri */
+    table td:nth-child(2),
+    #altTable td:first-child,
+    #criteriaTable td:nth-child(2) {
+        text-align: left !important;
+    }
+
+    /* Alokasi proporsi lebar kolom tabel alternatif */
+    #altTable th:first-child,
+    #altTable td:first-child {
+        width: 25% !important;
+    }
+
+    /* Alokasi proporsi lebar kolom tabel kriteria */
+    #criteriaTable th:first-child { width: 10% !important; }
+    #criteriaTable th:nth-child(2) { width: 35% !important; }
+    #criteriaTable th:nth-child(3) { width: 18% !important; }
+    #criteriaTable th:nth-child(4) { width: 18% !important; }
+    #criteriaTable th:nth-child(5) { width: 19% !important; }
+
+    /* Alokasi proporsi lebar kolom tabel ranking */
+    #rankingTable th:first-child { width: 8% !important; }
+    #rankingTable th:nth-child(2) { width: 24% !important; }
+
+    /* Ubah input form menjadi tampilan teks cetak biasa tanpa kotak input */
+    input[type="text"],
+    input[type="number"],
+    select {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 8pt !important;
+        width: 100% !important;
+        text-align: inherit !important;
+        box-shadow: none !important;
+        color: #0f172a !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+    }
+
+    /* Sembunyikan panah input number pada cetak */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none !important;
+        margin: 0 !important;
+    }
+
+    /* Kartu rekomendasi terbaik dibuat ringkas dan rapi */
+    #topRecommendationContainer {
+        border: 1.5px solid #4f46e5 !important;
+        background-color: #f8faff !important;
+        padding: 6pt 10pt !important;
+        margin-bottom: 8pt !important;
+    }
+}
